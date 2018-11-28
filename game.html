@@ -1,0 +1,490 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Untitled Document</title>
+</head>
+<body>
+<canvas id="canvasElement" width="800" height="600"></canvas>
+<script type="text/javascript" src="alien_class.js"></script>
+<script type="text/javascript" src="menu_class.js"></script>
+<script type="text/javascript" src="spaceship_class.js"></script>
+<script type="text/javascript" src="bullet_class.js"></script>
+<script type="text/javascript" src="shield_class.js"></script>
+<script type="text/javascript" src="drawBitmap_function.js"></script>
+<script>
+
+var g_canvas		 				= document.getElementById("canvasElement");
+var g_ctx			 				= g_canvas.getContext("2d");
+var g_fps		   	 				= 30;
+var g_delay 		 				= 1000/30 ;
+var g_alienXpos_arry 				= new Array(50);
+var g_alienYpos_arry 				= new Array(50);
+var g_Aliens 		 				= new Array(50);
+var g_functionCallCounter   		= 0;
+var g_bulletCount 					= 20;
+var g_alienCount 					= 50;
+var g_lastFiredBullet				= 0;
+var g_firstBullet           		= 1;           
+var g_moveMothershipFlag			= 0;
+var g_MothershipCollisionFlag		= 0;
+var g_MothershipXpos				= 820; 
+var g_MothershipYpos				= 60;
+var g_incAlienX						= 15;
+var g_incAlienY						= 20;
+var g_score							= 0;
+var g_spaceshiplives				= 3;
+var g_motherShipBitmap				= new Array(36)				
+g_motherShipBitmap					= [ 0,0,0,0,1,0,0,0,0,
+										0,0,0,1,1,1,0,0,0,
+										0,0,1,1,1,1,1,0,0,
+										0,1,1,1,1,1,1,1,0,
+										1,0,1,1,0,1,1,0,1 ]
+//------------------------------------------------------
+function drawMothership()
+{
+	if(g_MothershipCollisionFlag!=1)
+	{
+		drawBitmap(g_motherShipBitmap,g_MothershipXpos,g_MothershipYpos,9,88,7,5,"red");
+	}
+}
+function moveMothership()
+{
+
+	if((g_functionCallCounter%150==0)&&(g_moveMothershipFlag==0)) {g_moveMothershipFlag=1;}
+	
+	if(g_moveMothershipFlag==1)
+	{
+		g_MothershipXpos-=5;
+		if(g_MothershipXpos+63<0)
+		{
+			g_MothershipXpos			= 820;
+			g_moveMothershipFlag		= 0;
+			g_MothershipCollisionFlag	= 0;
+		}
+	}
+}
+
+function initAliens_XYpos()
+{
+	g_alienXpos_arry[0]		 	= 110;
+    g_alienYpos_arry[0]			= 150;
+	var l_alienHorizontalGap	= 60;
+	var l_alienVerticalGap		= 40;
+	for(i=1;i<g_alienCount;i++)
+	{
+		g_alienXpos_arry[i] = g_alienXpos_arry[i-1]+l_alienHorizontalGap;
+		g_alienYpos_arry[i] = g_alienYpos_arry[i-1];
+		if(i%10==0) 
+		{ 
+			g_alienXpos_arry[i] = 110; 
+			g_alienYpos_arry[i] = g_alienYpos_arry[i-1]+l_alienVerticalGap;
+		}
+	}
+}
+function deactivateMissedBullet()
+{
+	for(i=0;i<g_bulletCount;i++)
+	{
+		if(g_spaceShp.bullets[i].ypos<55)
+		{
+			g_spaceShp.bullets[i].active=0;
+		}
+	}
+}
+function createAliens() 
+{
+	for(i=0;i<g_alienCount;i++)
+	{
+		g_Aliens[i] = new c_alien(g_alienXpos_arry[i],g_alienYpos_arry[i]);
+	}
+}
+
+function drawAliens()
+{
+	if(g_functionCallCounter%20==0)
+	{
+		for(i=0;i<g_alienCount;i++)
+		{
+			g_Aliens[i].frameFlag=-g_Aliens[i].frameFlag;
+		}
+	}
+	
+	for(var j=0;j<g_alienCount;j++)
+	{
+		g_Aliens[j].drawAlien();
+	}
+}
+
+function moveAliens()
+{
+	if(g_functionCallCounter%25==0)
+	{
+	    for(i=0;i<g_alienCount;i++)
+		{
+			g_Aliens[i].xpos+=g_incAlienX;
+		}
+	}
+}
+function manageAlienMovement()
+{
+	for(i=0;i<g_alienCount;i++)
+	{
+		if( (((g_Aliens[i].xpos+50)>=g_canvas.width)||((g_Aliens[i].xpos-10)<=0))&&(g_Aliens[i].collisionflag!=1))
+		{
+			g_incAlienX = -g_incAlienX;
+			for(i=0;i<g_alienCount;i++)
+			{
+				g_Aliens[i].xpos+=g_incAlienX;
+			}
+			for(i=0;i<g_alienCount;i++)
+			{
+				g_Aliens[i].ypos+=g_incAlienY;
+			}
+		}
+	}
+	for(j=0;j<g_alienCount;j++)
+	{
+	   if((g_Aliens[j].ypos>400)&&(g_Aliens[j].collisionflag==0)) {g_spcInvMenu.gameoverFlag=1;}
+	}
+}
+
+function check_collision()
+{
+	for(i=0;i<g_bulletCount;i++)
+	{
+		for(j=0;j<g_alienCount;j++)
+		{
+			if((g_spaceShp.bullets[i].xpos+5>g_Aliens[j].xpos)&&(g_spaceShp.bullets[i].xpos<g_Aliens[j].xpos+44)&&
+			   (g_spaceShp.bullets[i].ypos>g_Aliens[j].ypos)&&(g_spaceShp.bullets[i].ypos<g_Aliens[j].ypos+32)&&
+			   (g_spaceShp.bullets[i].active==1)&&(g_Aliens[j].collisionflag!=1))
+				{
+					g_Aliens[j].collisionflag  = 1;
+					g_spaceShp.bullets[i].active = 0;
+					g_spcInvMenu.score+=10;
+				}
+		}
+		
+		if( (g_spaceShp.bullets[i].xpos+5>g_MothershipXpos)&&(g_spaceShp.bullets[i].xpos<g_MothershipXpos+50)&&  //collision b/w Mothership and bullet
+		    (g_spaceShp.bullets[i].ypos>10)&&(g_spaceShp.bullets[i].ypos<80)&&
+		    (g_spaceShp.bullets[i].active==1) )
+				{
+					g_spaceShp.bullets[i].active     = 0;
+					g_MothershipCollisionFlag = 1;
+					g_spcInvMenu.score+=50;
+				}
+	}
+}
+
+function manageAlienBullets()
+{
+	if(g_functionCallCounter%30==0)
+	{
+		var l_rand_alien_1=parseInt((Math.random()*10)+40);
+		
+		if(g_Aliens[l_rand_alien_1].collisionflag==0) {g_Aliens[l_rand_alien_1].trigger=1;}
+		else if (g_Aliens[l_rand_alien_1-=10].collisionflag==0) {g_Aliens[l_rand_alien_1].trigger=1;}
+		else if (g_Aliens[l_rand_alien_1-=10].collisionflag==0) {g_Aliens[l_rand_alien_1].trigger=1;}
+		else if (g_Aliens[l_rand_alien_1-=10].collisionflag==0) {g_Aliens[l_rand_alien_1].trigger=1;}
+		else if (g_Aliens[l_rand_alien_1-=10].collisionflag==0) {g_Aliens[l_rand_alien_1].trigger=1;}
+	}
+	for(j=0;j<g_alienCount;j++)
+	{
+		g_Aliens[j].managebullet();
+	    g_Aliens[j].cannon.moveBullet();
+	}
+}
+function drawAlienBullets()
+{
+	for(j=0;j<g_alienCount;j++)
+	{
+		if(g_Aliens[j].cannon.active == 1){g_Aliens[j].cannon.drawBullet();}
+	}
+}
+function keydownEventHandler(e)
+{
+	if(e.keyCode==37){g_spaceShp.leftFlag     = 1;}
+	if(e.keyCode==39){g_spaceShp.rightFlag    = 1;}
+	if(e.keyCode==32){g_spaceShp.trigger_flag = 1;}
+	if(e.keyCode==13){ g_spcInvMenu.startFlag=1;}
+	if((e.keyCode==80)&&(g_spcInvMenu.startFlag==1)){ g_spcInvMenu.pauseFlag=-g_spcInvMenu.pauseFlag;}
+	if(e.keyCode==72){ g_spcInvMenu.highScoreFlag=-g_spcInvMenu.highScoreFlag;}
+	if(e.keyCode==82){window.location.reload();}
+	
+}
+
+function keyupEventHandler(e)
+{
+	if(e.keyCode==37){g_spaceShp.leftFlag		= 0;}
+	if(e.keyCode==39){g_spaceShp.rightFlag	= 0;}
+	if(e.keyCode==32){g_spaceShp.trigger_flag = 0;}
+}
+
+function chkAlienbulletAndTankCollision()
+{
+	for(var k=0;k<g_alienCount;k++)
+	{
+		if((g_Aliens[k].cannon.ypos+10>570)&&(g_Aliens[k].cannon.xpos>g_spaceShp.xpos)&&
+		   (g_Aliens[k].cannon.xpos<g_spaceShp.xpos+50)&&(g_Aliens[k].cannon.active==1))  
+		{
+			g_spcInvMenu.lives--;
+			g_spaceShp.collisionFlag=1;
+			g_Aliens[k].cannon.active=0;
+		}
+		if(g_Aliens[k].cannon.ypos+10>g_canvas.height) {g_Aliens[k].cannon.active=0; }
+	}
+}
+function checkEndOfGame()
+{
+	var l_deadAlienCounter=0;
+	if(	g_spcInvMenu.lives==0) {g_spcInvMenu.gameoverFlag=1;}
+	for(j=0;j<g_alienCount;j++)
+	{
+		if( g_Aliens[j].collisionflag==1) {l_deadAlienCounter++;}
+	}
+	if(l_deadAlienCounter==50) {g_spcInvMenu.winnerFlag=1;}
+}
+function initShields()
+{
+	for(var i=0;i<3;i++)
+	{
+		g_shields[i]=new c_shield();
+	}
+	g_shields[0].xpos=160;
+	g_shields[0].ypos=450;
+	g_shields[1].xpos=360;
+	g_shields[1].ypos=450;
+	g_shields[2].xpos=560;
+	g_shields[2].ypos=450;
+	for(var j=0;j<3;j++)
+	{
+		g_shields[j].initXYposArray();
+	}
+	
+	//console.log(g_shields[1].xposArray);
+	
+}
+function drawShields()
+{
+	for(var i=0;i<3;i++)
+	{
+		g_shields[i].drawShield();
+	}
+}
+function chkTankBulletAndShieldCollision()
+{
+	for(i=0;i<g_bulletCount;i++)
+	{
+		if((g_spaceShp.bullets[i].xpos>150)&&(g_spaceShp.bullets[i].xpos<300))
+		{
+			chkcollision(i,0);
+		}
+		if((g_spaceShp.bullets[i].xpos>350)&&(g_spaceShp.bullets[i].xpos<500))
+		{
+			chkcollision(i,1);
+		}
+		if((g_spaceShp.bullets[i].xpos>550)&&(g_spaceShp.bullets[i].xpos<700))
+		{
+			chkcollision(i,2);
+		}
+	}
+}
+
+function chkcollision(i,l_shld_num)
+{
+	for(var k=0;k<5;k++)
+	{
+		if((g_spaceShp.bullets[i].xpos+5>g_shields[l_shld_num].xposArray[k])&&(g_spaceShp.bullets[i].xpos<g_shields[l_shld_num].xposArray[k]+40)&&
+		   (g_spaceShp.bullets[i].ypos>g_shields[l_shld_num].yposArray[k])&&(g_spaceShp.bullets[i].ypos<g_shields[l_shld_num].yposArray[k]+24)&&
+			(g_spaceShp.bullets[i].active==1)&&(g_shields[l_shld_num].shieldBitmapLevOfPrt[k]<3) )
+		   {
+			   g_shields[l_shld_num].shieldBitmapLevOfPrt[k]++;
+			   g_spaceShp.bullets[i].active = 0;
+		   }
+	}
+}
+function alienBulletAndShieldCollision()
+{
+	for(i=0;i<g_alienCount;i++)
+	{
+		if(g_Aliens[i].cannon.active==1)
+		{
+			if((g_Aliens[i].cannon.xpos>150)&&(g_Aliens[i].cannon.xpos<300))
+			{
+				chkcolsn(i,0);
+			}
+			if((g_Aliens[i].cannon.xpos>350)&&(g_Aliens[i].cannon.xpos<500))
+			{
+				chkcolsn(i,1);
+			}
+			if((g_Aliens[i].cannon.xpos>550)&&(g_Aliens[i].cannon.xpos<700))
+			{
+				chkcolsn(i,2);
+			}
+			
+		}
+	}
+}
+function chkcolsn(i,l_shld_num)
+{
+	for(var k=0;k<5;k++)
+	{
+		if((g_Aliens[i].cannon.xpos+5>g_shields[l_shld_num].xposArray[k])&&(g_Aliens[i].cannon.xpos<g_shields[l_shld_num].xposArray[k]+40)&&
+		   (g_Aliens[i].cannon.ypos>g_shields[l_shld_num].yposArray[k])&&(g_Aliens[i].cannon.ypos<g_shields[l_shld_num].yposArray[k]+24)&&
+			(g_Aliens[i].cannon.active==1)&&(g_shields[l_shld_num].shieldBitmapLevOfPrt[k]<3))
+		   {
+			   g_shields[l_shld_num].shieldBitmapLevOfPrt[k]++;
+			   g_Aliens[i].cannon.active = 0;
+		   }
+	}
+}
+function clearCanvas()
+{
+	g_ctx.fillStyle="black"
+	g_ctx.fillRect(0,0,g_canvas.width,g_canvas.height);
+	g_ctx.strokeStyle="white"
+	g_ctx.strokeRect(0,0,g_canvas.width,g_canvas.height);
+	g_ctx.strokeRect(0,55,g_canvas.width,1);
+} 
+
+function manageHighScore()
+{
+	if(g_spcInvMenu.winnerFlag==1)
+	{
+		if(g_spcInvMenu.score>localStorage.getItem('S5'))
+		{
+			if(g_spcInvMenu.score<localStorage.getItem('S4'))
+			{
+				var l_name = prompt("New High Score!!!! Enter Your Name");
+				localStorage.setItem('N5',l_name);
+				localStorage.setItem('S5',g_spcInvMenu.score);
+				return;
+			}
+			if(g_spcInvMenu.score<localStorage.getItem('S3'))
+			{
+				var l_name = prompt("New High Score!!!! Enter Your Name");
+				localStorage.setItem('N5',localStorage.getItem('N4'));
+				localStorage.setItem('S5',localStorage.getItem('S4'));
+				localStorage.setItem('N4',l_name);
+				localStorage.setItem('S4',g_spcInvMenu.score);
+				return;
+			}
+			if(g_spcInvMenu.score<localStorage.getItem('S2'))
+			{
+				var l_name = prompt("New High Score!!!! Enter Your Name");
+				localStorage.setItem('N5',localStorage.getItem('N4'));
+				localStorage.setItem('S5',localStorage.getItem('S4'));
+				localStorage.setItem('N4',localStorage.getItem('N3'));
+				localStorage.setItem('S4',localStorage.getItem('S3'));
+				localStorage.setItem('N3',l_name);
+				localStorage.setItem('S3',g_spcInvMenu.score);
+				return;
+			}
+			if(g_spcInvMenu.score<localStorage.getItem('S1'))
+			{
+				var l_name = prompt("New High Score!!!! Enter Your Name");
+				localStorage.setItem('N5',localStorage.getItem('N4'));
+				localStorage.setItem('S5',localStorage.getItem('S4'));
+				localStorage.setItem('N4',localStorage.getItem('N3'));
+				localStorage.setItem('S4',localStorage.getItem('S3'));
+				localStorage.setItem('N3',localStorage.getItem('N2'));
+				localStorage.setItem('S3',localStorage.getItem('S2'));
+				localStorage.setItem('N2',l_name);
+				localStorage.setItem('S2',g_spcInvMenu.score);
+				return;
+			}
+			if(g_spcInvMenu.score>localStorage.getItem('S1'))
+			{
+				var l_name = prompt("New High Score!!!! Enter Your Name");
+				localStorage.setItem('N5',localStorage.getItem('N4'));
+				localStorage.setItem('S5',localStorage.getItem('S4'));
+				localStorage.setItem('N4',localStorage.getItem('N3'));
+				localStorage.setItem('S4',localStorage.getItem('S3'));
+				localStorage.setItem('N3',localStorage.getItem('N2'));
+				localStorage.setItem('S3',localStorage.getItem('S2'));
+				localStorage.setItem('N2',localStorage.getItem('N1'));
+				localStorage.setItem('S2',localStorage.getItem('S1'));
+				localStorage.setItem('N1',l_name);
+				localStorage.setItem('S1',g_spcInvMenu.score);
+				return;
+			}
+		}
+		
+		
+	}
+		
+}
+
+//$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+function gameLoop()
+{
+	if((g_spcInvMenu.startFlag==1)&&(g_spcInvMenu.gameoverFlag==0)&&
+	   (g_spcInvMenu.winnerFlag==0)&&(g_spcInvMenu.pauseFlag>0)&&(g_spcInvMenu.highScoreFlag>0))
+	{
+		g_spaceShp.moveShip();
+		g_spaceShp.checkBoundary();
+		g_spaceShp.manageBullets();
+		g_spaceShp.moveBullets();
+		moveAliens();
+		manageAlienMovement();
+		manageAlienBullets();
+		chkAlienbulletAndTankCollision();
+		check_collision();
+		chkTankBulletAndShieldCollision();
+		alienBulletAndShieldCollision();
+		deactivateMissedBullet();
+		moveMothership();
+		checkEndOfGame();
+		manageHighScore();
+		
+		g_functionCallCounter++;
+	}
+	
+			clearCanvas();
+	
+	if((g_spcInvMenu.startFlag==1)&&(g_spcInvMenu.highScoreFlag>0))
+	{
+		g_spaceShp.drawBullets();
+		drawAliens();
+		drawAlienBullets();
+		drawMothership();
+		g_spaceShp.drawSpaceShip();
+		drawShields();
+		g_spcInvMenu.drawScore();
+		g_spcInvMenu.drawLives();
+		g_spcInvMenu.drawEndOfGame();
+	}
+
+	if((g_spcInvMenu.startFlag==0)&&(g_spcInvMenu.highScoreFlag>0))	{g_spcInvMenu.drawMenu();}
+	if(g_spcInvMenu.highScoreFlag<0) {g_spcInvMenu.drawHighScore();}
+	
+	
+}
+//$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$
+
+var g_spaceShp = new c_spaceShip();
+g_spaceShp.initBullets();
+initAliens_XYpos();
+createAliens();
+
+var g_spcInvMenu = new c_menu();
+g_spcInvMenu.gameName="SPACE INVADERS";
+g_spcInvMenu.nameX=270;
+g_spcInvMenu.nameY=150;
+g_spcInvMenu.scrX=60;
+g_spcInvMenu.scrY=40;
+g_spcInvMenu.livX=650;
+g_spcInvMenu.livY=40;
+var g_shields= new Array(3);
+initShields();
+
+setInterval(gameLoop,g_delay);
+window.addEventListener("keydown",keydownEventHandler,false);
+window.addEventListener("keyup",keyupEventHandler,false);
+
+
+
+
+</script>
+</body>
+</html>
